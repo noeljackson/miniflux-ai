@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -38,7 +39,8 @@ type WebhookHandler struct {
 	Secret   string
 	Curator  Curator
 	Updater  EntryUpdater
-	Profiler *Profiler
+	Store    *VectorStore
+	Embedder Embedder
 }
 
 func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -81,16 +83,13 @@ func (h *WebhookHandler) validSignature(body []byte, signature string) bool {
 }
 
 func (h *WebhookHandler) processEntry(entry WebhookEntry) {
-	profile := ""
-	if h.Profiler != nil {
-		profile = h.Profiler.Profile()
-	}
-
-	result, err := h.Curator.Curate(entry.Title, entry.Content, entry.URL, profile)
+	result, err := h.Curator.Curate(entry.Title, entry.Content, entry.URL)
 	if err != nil {
 		log.Printf("curator error for entry %d: %v", entry.ID, err)
 		return
 	}
+
+	result.Relevance = h.computeRelevance(entry.Title)
 
 	summaryHTML := formatSummary(result)
 	newContent := summaryHTML + entry.Content
@@ -102,6 +101,27 @@ func (h *WebhookHandler) processEntry(entry WebhookEntry) {
 
 	log.Printf("processed entry %d [%s]: relevance=%d",
 		entry.ID, entry.Title, result.Relevance)
+}
+
+func (h *WebhookHandler) computeRelevance(title string) int {
+	if h.Embedder == nil || h.Store == nil {
+		return 50
+	}
+
+	ctx := context.Background()
+	embedding, err := h.Embedder.Embed(ctx, title)
+	if err != nil {
+		log.Printf("embed error: %v", err)
+		return 50
+	}
+
+	similarity, err := h.Store.Similarity(ctx, embedding)
+	if err != nil {
+		log.Printf("similarity error: %v", err)
+		return 50
+	}
+
+	return int(similarity * 100)
 }
 
 func formatSummary(r *CurationResult) string {

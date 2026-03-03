@@ -10,7 +10,8 @@ type Config struct {
 	MinifluxAPIKey  string
 	AnthropicAPIKey string
 	WebhookSecret   string
-	Port            string
+	DatabaseURL string
+	Port        string
 }
 
 func LoadConfig() (*Config, error) {
@@ -19,7 +20,8 @@ func LoadConfig() (*Config, error) {
 		MinifluxAPIKey:  os.Getenv("MINIFLUX_API_KEY"),
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		WebhookSecret:   os.Getenv("WEBHOOK_SECRET"),
-		Port:            os.Getenv("PORT"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+		Port:        os.Getenv("PORT"),
 	}
 
 	if cfg.MinifluxURL == "" {
@@ -33,6 +35,9 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.WebhookSecret == "" {
 		return nil, fmt.Errorf("WEBHOOK_SECRET is required")
+	}
+	if cfg.DatabaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
 	if cfg.Port == "" {
 		cfg.Port = "3000"

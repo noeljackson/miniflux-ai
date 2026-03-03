@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,7 +17,7 @@ type mockCurator struct {
 	err    error
 }
 
-func (m *mockCurator) Curate(title, content, url, userProfile string) (*CurationResult, error) {
+func (m *mockCurator) Curate(title, content, url string) (*CurationResult, error) {
 	return m.result, m.err
 }
 
@@ -27,6 +28,15 @@ type mockUpdater struct {
 func (m *mockUpdater) UpdateEntryContent(entryID int64, content string) error {
 	m.updated[entryID] = content
 	return nil
+}
+
+type mockEmbedder struct {
+	embedding []float32
+	err       error
+}
+
+func (m *mockEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	return m.embedding, m.err
 }
 
 func sign(body []byte, secret string) string {
@@ -63,7 +73,7 @@ func TestWebhook_ValidSignature_WrongEvent(t *testing.T) {
 
 func TestWebhook_ProcessesEntries(t *testing.T) {
 	mc := &mockCurator{result: &CurationResult{
-		Summary: "Test summary", Tags: []string{"go"}, Relevance: 90, Reason: "Relevant",
+		Summary: "Test summary", Tags: []string{"go"}, Reason: "Relevant",
 	}}
 	mu := &mockUpdater{updated: make(map[int64]string)}
 	h := &WebhookHandler{Secret: "s", Curator: mc, Updater: mu}
@@ -89,9 +99,9 @@ func TestWebhook_ProcessesEntries(t *testing.T) {
 	}
 }
 
-func TestWebhook_LowRelevance_StillUpdated(t *testing.T) {
+func TestWebhook_NoEmbedder_FallbackRelevance(t *testing.T) {
 	mc := &mockCurator{result: &CurationResult{
-		Summary: "Meh", Tags: []string{"misc"}, Relevance: 30, Reason: "Not relevant",
+		Summary: "Test", Tags: []string{"misc"}, Reason: "ok",
 	}}
 	mu := &mockUpdater{updated: make(map[int64]string)}
 	h := &WebhookHandler{Secret: "s", Curator: mc, Updater: mu}
@@ -107,7 +117,11 @@ func TestWebhook_LowRelevance_StillUpdated(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
-	if _, ok := mu.updated[2]; !ok {
-		t.Error("entry 2 should still be updated with summary")
+	content := mu.updated[2]
+	if content == "" {
+		t.Error("entry 2 should be updated")
+	}
+	if !bytes.Contains([]byte(content), []byte("50/100")) {
+		t.Errorf("expected fallback relevance 50, got content: %s", content)
 	}
 }

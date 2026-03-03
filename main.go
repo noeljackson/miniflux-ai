@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+
+	miniflux "miniflux.app/v2/client"
 )
 
 func main() {
@@ -11,15 +14,35 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
+	ctx := context.Background()
+
+	store, err := NewVectorStore(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("vectorstore error: %v", err)
+	}
+	defer store.Close()
+
+	if err := store.Migrate(ctx); err != nil {
+		log.Fatalf("migration error: %v", err)
+	}
+	log.Println("migration complete")
+
+	embedder := NewOllamaEmbedder("http://ollama:11434")
 	curator := NewClaudeCurator(cfg.AnthropicAPIKey)
 	updater := NewMinifluxUpdater(cfg.MinifluxURL, cfg.MinifluxAPIKey)
-	profiler := NewProfiler(updater.client)
+	mfClient := miniflux.NewClient(cfg.MinifluxURL, cfg.MinifluxAPIKey)
+
+	syncer := NewSyncer(mfClient, store, embedder)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go syncer.Run(ctx)
 
 	webhook := &WebhookHandler{
 		Secret:   cfg.WebhookSecret,
 		Curator:  curator,
 		Updater:  updater,
-		Profiler: profiler,
+		Store:    store,
+		Embedder: embedder,
 	}
 
 	mux := http.NewServeMux()
