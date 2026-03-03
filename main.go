@@ -15,10 +15,9 @@ func main() {
 	updater := NewMinifluxUpdater(cfg.MinifluxURL, cfg.MinifluxAPIKey)
 
 	webhook := &WebhookHandler{
-		Secret:    cfg.WebhookSecret,
-		Threshold: cfg.RelevanceThreshold,
-		Curator:   curator,
-		Updater:   updater,
+		Secret:  cfg.WebhookSecret,
+		Curator: curator,
+		Updater: updater,
 	}
 
 	mux := http.NewServeMux()

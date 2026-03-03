@@ -21,6 +21,3 @@ func (m *MinifluxUpdater) UpdateEntryContent(entryID int64, content string) erro
 	return err
 }
 
-func (m *MinifluxUpdater) StarEntry(entryID int64) error {
-	return m.client.ToggleStarred(entryID)
-}

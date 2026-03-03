@@ -3,16 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 )
 
 type Config struct {
-	MinifluxURL        string
-	MinifluxAPIKey     string
-	AnthropicAPIKey    string
-	WebhookSecret      string
-	RelevanceThreshold int
-	Port               string
+	MinifluxURL     string
+	MinifluxAPIKey  string
+	AnthropicAPIKey string
+	WebhookSecret   string
+	Port            string
 }
 
 func LoadConfig() (*Config, error) {
@@ -38,20 +36,6 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.Port == "" {
 		cfg.Port = "3000"
-	}
-
-	threshold := os.Getenv("RELEVANCE_THRESHOLD")
-	if threshold == "" {
-		cfg.RelevanceThreshold = 75
-	} else {
-		t, err := strconv.Atoi(threshold)
-		if err != nil {
-			return nil, fmt.Errorf("RELEVANCE_THRESHOLD must be an integer: %w", err)
-		}
-		if t < 0 || t > 100 {
-			return nil, fmt.Errorf("RELEVANCE_THRESHOLD must be 0-100, got %d", t)
-		}
-		cfg.RelevanceThreshold = t
 	}
 
 	return cfg, nil

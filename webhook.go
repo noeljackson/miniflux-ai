@@ -32,14 +32,12 @@ type WebhookEntry struct {
 
 type EntryUpdater interface {
 	UpdateEntryContent(entryID int64, content string) error
-	StarEntry(entryID int64) error
 }
 
 type WebhookHandler struct {
-	Secret    string
-	Threshold int
-	Curator   Curator
-	Updater   EntryUpdater
+	Secret  string
+	Curator Curator
+	Updater EntryUpdater
 }
 
 func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -96,14 +94,8 @@ func (h *WebhookHandler) processEntry(entry WebhookEntry) {
 		return
 	}
 
-	if result.Relevance >= h.Threshold {
-		if err := h.Updater.StarEntry(entry.ID); err != nil {
-			log.Printf("star error for entry %d: %v", entry.ID, err)
-		}
-	}
-
-	log.Printf("processed entry %d [%s]: relevance=%d starred=%t",
-		entry.ID, entry.Title, result.Relevance, result.Relevance >= h.Threshold)
+	log.Printf("processed entry %d [%s]: relevance=%d",
+		entry.ID, entry.Title, result.Relevance)
 }
 
 func formatSummary(r *CurationResult) string {
