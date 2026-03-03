@@ -21,9 +21,6 @@ func TestLoadConfig_AllRequired(t *testing.T) {
 	if cfg.Port != "3000" {
 		t.Errorf("Port = %q, want 3000", cfg.Port)
 	}
-	if cfg.RelevanceThreshold != 75 {
-		t.Errorf("RelevanceThreshold = %d, want 75", cfg.RelevanceThreshold)
-	}
 }
 
 func TestLoadConfig_MissingRequired(t *testing.T) {
@@ -50,34 +47,5 @@ func TestLoadConfig_MissingRequired(t *testing.T) {
 				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestLoadConfig_CustomThreshold(t *testing.T) {
-	t.Setenv("MINIFLUX_URL", "u")
-	t.Setenv("MINIFLUX_API_KEY", "k")
-	t.Setenv("ANTHROPIC_API_KEY", "k")
-	t.Setenv("WEBHOOK_SECRET", "s")
-	t.Setenv("RELEVANCE_THRESHOLD", "90")
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.RelevanceThreshold != 90 {
-		t.Errorf("RelevanceThreshold = %d, want 90", cfg.RelevanceThreshold)
-	}
-}
-
-func TestLoadConfig_InvalidThreshold(t *testing.T) {
-	t.Setenv("MINIFLUX_URL", "u")
-	t.Setenv("MINIFLUX_API_KEY", "k")
-	t.Setenv("ANTHROPIC_API_KEY", "k")
-	t.Setenv("WEBHOOK_SECRET", "s")
-	t.Setenv("RELEVANCE_THRESHOLD", "abc")
-
-	_, err := LoadConfig()
-	if err == nil {
-		t.Fatal("expected error for non-integer threshold")
 	}
 }

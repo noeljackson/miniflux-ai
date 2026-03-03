@@ -18,7 +18,7 @@ type CurationResult struct {
 }
 
 type Curator interface {
-	Curate(title, content, url string) (*CurationResult, error)
+	Curate(title, content, url, userProfile string) (*CurationResult, error)
 }
 
 type ClaudeCurator struct {
@@ -30,20 +30,30 @@ func NewClaudeCurator(apiKey string) *ClaudeCurator {
 	return &ClaudeCurator{client: &client}
 }
 
-func (c *ClaudeCurator) Curate(title, content, url string) (*CurationResult, error) {
+func (c *ClaudeCurator) Curate(title, content, url, userProfile string) (*CurationResult, error) {
 	cleanContent := truncate(content, 4000)
+
+	profileSection := ""
+	if userProfile != "" {
+		profileSection = fmt.Sprintf(`
+
+The user has starred these articles as favorites. Use them to calibrate your relevance score, giving higher scores to articles similar in topic/style to what the user likes:
+
+%s
+`, userProfile)
+	}
 
 	prompt := fmt.Sprintf(`Analyze this RSS feed entry and return a JSON object with these fields:
 - "summary": 1-2 sentence summary of the key points
 - "tags": array of 2-5 topic tags (lowercase)
-- "relevance": integer 0-100 rating how relevant/interesting this is for a software engineer interested in AI, distributed systems, and programming languages
+- "relevance": integer 0-100 rating how relevant/interesting this is to the user
 - "reason": 1 sentence explaining the relevance score
-
+%s
 Title: %s
 URL: %s
 Content: %s
 
-Return ONLY valid JSON, no markdown fences or other text.`, title, url, cleanContent)
+Return ONLY valid JSON, no markdown fences or other text.`, profileSection, title, url, cleanContent)
 
 	message, err := c.client.Messages.New(context.Background(), anthropic.MessageNewParams{
 		Model:     anthropic.ModelClaudeHaiku4_5_20251001,

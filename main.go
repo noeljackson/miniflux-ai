@@ -13,11 +13,13 @@ func main() {
 
 	curator := NewClaudeCurator(cfg.AnthropicAPIKey)
 	updater := NewMinifluxUpdater(cfg.MinifluxURL, cfg.MinifluxAPIKey)
+	profiler := NewProfiler(updater.client)
 
 	webhook := &WebhookHandler{
-		Secret:  cfg.WebhookSecret,
-		Curator: curator,
-		Updater: updater,
+		Secret:   cfg.WebhookSecret,
+		Curator:  curator,
+		Updater:  updater,
+		Profiler: profiler,
 	}
 
 	mux := http.NewServeMux()

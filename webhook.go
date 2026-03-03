@@ -35,9 +35,10 @@ type EntryUpdater interface {
 }
 
 type WebhookHandler struct {
-	Secret  string
-	Curator Curator
-	Updater EntryUpdater
+	Secret   string
+	Curator  Curator
+	Updater  EntryUpdater
+	Profiler *Profiler
 }
 
 func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +81,12 @@ func (h *WebhookHandler) validSignature(body []byte, signature string) bool {
 }
 
 func (h *WebhookHandler) processEntry(entry WebhookEntry) {
-	result, err := h.Curator.Curate(entry.Title, entry.Content, entry.URL)
+	profile := ""
+	if h.Profiler != nil {
+		profile = h.Profiler.Profile()
+	}
+
+	result, err := h.Curator.Curate(entry.Title, entry.Content, entry.URL, profile)
 	if err != nil {
 		log.Printf("curator error for entry %d: %v", entry.ID, err)
 		return

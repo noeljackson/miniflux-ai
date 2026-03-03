@@ -16,22 +16,16 @@ type mockCurator struct {
 	err    error
 }
 
-func (m *mockCurator) Curate(title, content, url string) (*CurationResult, error) {
+func (m *mockCurator) Curate(title, content, url, userProfile string) (*CurationResult, error) {
 	return m.result, m.err
 }
 
 type mockUpdater struct {
 	updated map[int64]string
-	starred []int64
 }
 
 func (m *mockUpdater) UpdateEntryContent(entryID int64, content string) error {
 	m.updated[entryID] = content
-	return nil
-}
-
-func (m *mockUpdater) StarEntry(entryID int64) error {
-	m.starred = append(m.starred, entryID)
 	return nil
 }
 
@@ -42,7 +36,7 @@ func sign(body []byte, secret string) string {
 }
 
 func TestWebhook_InvalidSignature(t *testing.T) {
-	h := &WebhookHandler{Secret: "test-secret", Threshold: 75}
+	h := &WebhookHandler{Secret: "test-secret"}
 	body := []byte(`{}`)
 	req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(body))
 	req.Header.Set("X-Miniflux-Signature", "bad-sig")
@@ -55,7 +49,7 @@ func TestWebhook_InvalidSignature(t *testing.T) {
 }
 
 func TestWebhook_ValidSignature_WrongEvent(t *testing.T) {
-	h := &WebhookHandler{Secret: "test-secret", Threshold: 75}
+	h := &WebhookHandler{Secret: "test-secret"}
 	body := []byte(`{}`)
 	req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(body))
 	req.Header.Set("X-Miniflux-Signature", sign(body, "test-secret"))
@@ -72,7 +66,7 @@ func TestWebhook_ProcessesEntries(t *testing.T) {
 		Summary: "Test summary", Tags: []string{"go"}, Relevance: 90, Reason: "Relevant",
 	}}
 	mu := &mockUpdater{updated: make(map[int64]string)}
-	h := &WebhookHandler{Secret: "s", Threshold: 75, Curator: mc, Updater: mu}
+	h := &WebhookHandler{Secret: "s", Curator: mc, Updater: mu}
 
 	payload := WebhookPayload{
 		EventType: "new_entries",
@@ -93,17 +87,14 @@ func TestWebhook_ProcessesEntries(t *testing.T) {
 	if _, ok := mu.updated[1]; !ok {
 		t.Error("entry 1 not updated")
 	}
-	if len(mu.starred) != 1 || mu.starred[0] != 1 {
-		t.Errorf("starred = %v, want [1]", mu.starred)
-	}
 }
 
-func TestWebhook_BelowThreshold_NotStarred(t *testing.T) {
+func TestWebhook_LowRelevance_StillUpdated(t *testing.T) {
 	mc := &mockCurator{result: &CurationResult{
 		Summary: "Meh", Tags: []string{"misc"}, Relevance: 30, Reason: "Not relevant",
 	}}
 	mu := &mockUpdater{updated: make(map[int64]string)}
-	h := &WebhookHandler{Secret: "s", Threshold: 75, Curator: mc, Updater: mu}
+	h := &WebhookHandler{Secret: "s", Curator: mc, Updater: mu}
 
 	payload := WebhookPayload{
 		EventType: "new_entries",
@@ -116,7 +107,7 @@ func TestWebhook_BelowThreshold_NotStarred(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
-	if len(mu.starred) != 0 {
-		t.Errorf("starred = %v, want empty", mu.starred)
+	if _, ok := mu.updated[2]; !ok {
+		t.Error("entry 2 should still be updated with summary")
 	}
 }
